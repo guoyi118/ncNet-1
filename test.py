@@ -8,11 +8,11 @@ This script handles the testing process.
 import torch
 import torch.nn as nn
 
-from utilities.inference import translate_sentence_with_guidance, postprocessing, get_all_table_columns
+from model.VisAwareTranslation import translate_sentence_with_guidance, postprocessing, get_all_table_columns
 from model.Model import Seq2Seq
 from model.Encoder import Encoder
 from model.Decoder import Decoder
-from utilities.build_vocab import build_vocab
+from preprocessing.build_vocab import build_vocab
 
 import random
 import numpy as np

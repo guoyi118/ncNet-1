@@ -57,12 +57,7 @@ class Encoder(nn.Module):
         src_len = src.shape[1]
 
         pos = torch.arange(0, src_len).unsqueeze(0).repeat(batch_size, 1).to(self.device)
-        #         print(pos,'\n',pos.size(),'\n=========================')
-        #         print('self.tok_embedding(src).size:', self.tok_embedding(src).size())
-        #         print('tok_types_embedding.size:', self.tok_types_embedding(tok_types).size())
-        #         print('self.pos_embedding(pos).size:', self.pos_embedding(pos).size())
-        #         print('src_len:', src_len)
-        #         print('\n=====\n')
+
         src = self.dropout(
             (self.tok_embedding(src) * self.scale) + self.tok_types_embedding(tok_types) + self.pos_embedding(pos))
 
@@ -105,7 +100,7 @@ class EncoderLayer(nn.Module):
 
         # src = [batch size, src len, hid dim]
 
-        # positionwise feedforward
+        # position-wise feedforward
         _src = self.positionwise_feedforward(src)
 
         # dropout, residual and layer norm

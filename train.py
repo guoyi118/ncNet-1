@@ -11,7 +11,7 @@ import torch.nn as nn
 from model.Model import Seq2Seq
 from model.Encoder import Encoder
 from model.Decoder import Decoder
-from utilities.build_vocab import build_vocab
+from preprocessing.build_vocab import build_vocab
 
 import numpy as np
 import random
@@ -126,9 +126,9 @@ if __name__ == '__main__':
 
     INPUT_DIM = len(SRC.vocab)
     OUTPUT_DIM = len(TRG.vocab)
-    HID_DIM = 256 # it equals to embedding dimension # 原来256，可以改成standard的512试一试
-    ENC_LAYERS = 3 # 3--> 6
-    DEC_LAYERS = 3 # 3-->6
+    HID_DIM = 256 # it equals to embedding dimension
+    ENC_LAYERS = 3
+    DEC_LAYERS = 3
     ENC_HEADS = 8
     DEC_HEADS = 8
     ENC_PF_DIM = 512

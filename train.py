@@ -236,5 +236,3 @@ if __name__ == '__main__':
         plt.plot(train_loss_list)
         plt.plot(valid_loss_list)
         plt.show()
-
-

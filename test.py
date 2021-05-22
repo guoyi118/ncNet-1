@@ -63,7 +63,7 @@ if __name__ == "__main__":
 
     INPUT_DIM = len(SRC.vocab)
     OUTPUT_DIM = len(TRG.vocab)
-    HID_DIM = 256  # it equals to embedding dimension # 原来256，可以改成standard的512试一试
+    HID_DIM = 256  # it equals to embedding dimension
     ENC_LAYERS = 3
     DEC_LAYERS = 3
     ENC_HEADS = 8

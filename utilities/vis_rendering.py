@@ -5,7 +5,19 @@ This file is for convert vis query to the Vega-Lite object
 # from IPython.core.interactiveshell import InteractiveShell
 # InteractiveShell.ast_node_interactivity = 'all'
 
-from vega import VegaLite
+# from vega import VegaLite
+
+from IPython.display import display
+def Vega(spec):
+    bundle = {}
+    bundle['application/vnd.vega.v5+json'] = spec
+    display(bundle, raw=True)
+
+def VegaLite(spec):
+    bundle = {}
+    bundle['application/vnd.vegalite.v4+json'] = spec
+    display(bundle, raw=True)
+
 import pandas as pd
 import sqlite3
 import json

@@ -2,8 +2,8 @@ __author__ = "Yuyu Luo"
 
 '''
 This script handles the testing process.
+We evaluate the ncNet on the benchmark dataset.
 '''
-
 
 import torch
 import torch.nn as nn
@@ -21,40 +21,27 @@ from tqdm import tqdm
 import math
 import matplotlib.pyplot as plt
 
-
-def evaluate(model, iterator, criterion):
-    model.eval()
-
-    epoch_loss = 0
-
-    with torch.no_grad():
-        for i, batch in enumerate(iterator):
-            src = batch.src
-            trg = batch.trg
-            tok_types = batch.tok_types
-
-            output, _ = model(src, trg[:, :-1], tok_types, SRC)
-
-            # output = [batch size, trg len - 1, output dim]
-            # trg = [batch size, trg len]
-
-            output_dim = output.shape[-1]
-
-            output = output.contiguous().view(-1, output_dim)
-            trg = trg[:, 1:].contiguous().view(-1)
-
-            # output = [batch size * trg len - 1, output dim]
-            # trg = [batch size * trg len - 1]
-
-            loss = criterion(output, trg)
-
-            epoch_loss += loss.item()
-
-    return epoch_loss / len(iterator)
-
-
+import argparse
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='test.py')
+
+    parser.add_argument('-model', required=False, default='./save_models/model_best.pt',
+                        help='Path to model weight file')
+    parser.add_argument('-data_dir', required=False, default='./dataset/dataset_final/',
+                        help='Path to dataset for building vocab')
+    parser.add_argument('-db_info', required=False, default='./dataset/database_information.csv',
+                        help='Path to database tables/columns information, for building vocab')
+    parser.add_argument('-test_data', required=False, default='./dataset/dataset_final/test.csv',
+                        help='Path to testing dataset, formatting as csv')
+    parser.add_argument('-db_schema', required=False, default='./dataset/db_tables_columns.json',
+                        help='Path to database schema file, formatting as json')
+    parser.add_argument('-batch_size', type=int, default=128)
+    parser.add_argument('-max_input_length', type=int, default=128)
+
+    opt = parser.parse_args()
+    print("the input parameters: ", opt)
+
     SEED = 1234
 
     random.seed(SEED)
@@ -67,16 +54,18 @@ if __name__ == "__main__":
 
     print("------------------------------\n| Build vocab start ... | \n------------------------------")
     SRC, TRG, TOK_TYPES, BATCH_SIZE, train_iterator, valid_iterator, test_iterator, my_max_length = build_vocab(
-        path_to_training_data='./dataset/dataset_final/',
-        path_to_db_info='./dataset/database_information.csv'
+        data_dir=opt.data_dir,
+        db_info=opt.db_info,
+        batch_size=opt.batch_size,
+        max_input_length=opt.max_input_length
     )
     print("------------------------------\n| Build vocab end ... | \n------------------------------")
 
     INPUT_DIM = len(SRC.vocab)
     OUTPUT_DIM = len(TRG.vocab)
     HID_DIM = 256  # it equals to embedding dimension # 原来256，可以改成standard的512试一试
-    ENC_LAYERS = 3  # 3--> 6
-    DEC_LAYERS = 3  # 3-->6
+    ENC_LAYERS = 3
+    DEC_LAYERS = 3
     ENC_HEADS = 8
     DEC_HEADS = 8
     ENC_PF_DIM = 512
@@ -84,6 +73,7 @@ if __name__ == "__main__":
     ENC_DROPOUT = 0.1
     DEC_DROPOUT = 0.1
 
+    print("------------------------------\n| Build encoder of the ncNet ... | \n------------------------------")
     enc = Encoder(INPUT_DIM,
                   HID_DIM,
                   ENC_LAYERS,
@@ -95,6 +85,7 @@ if __name__ == "__main__":
                   my_max_length
                   )
 
+    print("------------------------------\n| Build decoder of the ncNet ... | \n------------------------------")
     dec = Decoder(OUTPUT_DIM,
                   HID_DIM,
                   DEC_LAYERS,
@@ -108,23 +99,19 @@ if __name__ == "__main__":
     SRC_PAD_IDX = SRC.vocab.stoi[SRC.pad_token]
     TRG_PAD_IDX = TRG.vocab.stoi[TRG.pad_token]
 
-    model = Seq2Seq(enc, dec, SRC, SRC_PAD_IDX, TRG_PAD_IDX, device).to(device)  # define the Seq2Seq model
+    print("------------------------------\n| Build the ncNet structure... | \n------------------------------")
+    ncNet = Seq2Seq(enc, dec, SRC, SRC_PAD_IDX, TRG_PAD_IDX, device).to(device)  # define the transformer-based ncNet
 
-    criterion = nn.CrossEntropyLoss(ignore_index=TRG_PAD_IDX)
+    print("------------------------------\n| Load the trained ncNet ... | \n------------------------------")
+    ncNet.load_state_dict(torch.load(opt.model, map_location=device))
+
 
     nl_acc = []
     nl_chart_acc = []
 
+    db_tables_columns = get_all_table_columns(opt.db_schema)
 
-    model.load_state_dict(torch.load('./save_models/model_best.pt'))
-
-    test_loss = evaluate(model, test_iterator, criterion)
-
-    print(f'| Test Loss: {test_loss:.3f} | Test PPL: {math.exp(test_loss):7.3f} |')
-
-    db_tables_columns = get_all_table_columns('./dataset/db_tables_columns.json')
-
-    test_df = pd.read_csv('./dataset/dataset_final/test.csv')
+    test_df = pd.read_csv(opt.test_data)
 
     test_result = []  # tvBench_id, chart_type, hardness, ifChartTemplate, ifRight=1
 
@@ -135,8 +122,8 @@ if __name__ == "__main__":
     nl_template_match = 0
     i = 0
 
-    #     test_df = test_df[test_df['tvBench_id'] == '79']
     for index, row in tqdm(test_df.iterrows()):
+
         try:
             gold_query = row['labels'].lower()
 
@@ -146,12 +133,12 @@ if __name__ == "__main__":
             tok_types = row['token_types']
 
             #     translation,  attention = translate_sentence(
-            #         src, SRC, TRG, TOK_TYPES, tok_types, model, device, my_max_length
+            #         src, SRC, TRG, TOK_TYPES, tok_types, ncNet, device, my_max_length
             #     )
 
             translation, attention, enc_attention = translate_sentence_with_guidance(
                 row['db_id'], gold_query.split(' ')[gold_query.split(' ').index('from') + 1],
-                src, SRC, TRG, TOK_TYPES, tok_types, SRC, model, db_tables_columns, device, my_max_length
+                src, SRC, TRG, TOK_TYPES, tok_types, SRC, ncNet, db_tables_columns, device, my_max_length
             )
 
             pred_query = ' '.join(translation).replace(' <eos>', '').lower()
@@ -180,14 +167,7 @@ if __name__ == "__main__":
                         'chart_template',
                         0
                     ])
-            #             pass
-            #                     print('---------with template---------------')
-            #                     print(row['db_id'])
-            #                     print(row['tvBench_id'])
-            #                     print(src)
-            #                     print(gold_query,'\n')
-            #                     print(old_pred_query, '\n')
-            #                     print(pred_query, '\n-------------------------\n')
+
 
             if '[c]' in src:
                 # without template
@@ -212,15 +192,6 @@ if __name__ == "__main__":
                         'only_nl',
                         0
                     ])
-        #             pass
-        #                     print('---------without template---------------')
-        #                     print(index)
-        #                     print(row['db_id'])
-        #                     print(row['tvBench_id'])
-        #                     print(src)
-        #                     print(gold_query,'\n')
-        #                     print(old_pred_query, '\n')
-        #                     print(pred_query, '\n-------------------------\n')
 
         except:
             print('error')

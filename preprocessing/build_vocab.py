@@ -1,18 +1,11 @@
 __author__ = "Yuyu Luo"
 
 import torch
-import torchtext
-from torchtext.datasets import Multi30k
-from torchtext.data import Field, Dataset, TabularDataset, BucketIterator
+from torchtext.data import Field, TabularDataset, BucketIterator
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-# TODO update the url of the input data source
-'''
-path_to_training_data = './Code/dataset/dataset_final/'
-path_to_db_info = './Code/dataset/database_information.csv'
-'''
-def build_vocab(path_to_training_data, path_to_db_info):
+def build_vocab(data_dir, db_info, batch_size, max_input_length):
 
     def tokenizer(text):
         return text.split(' ')
@@ -39,7 +32,7 @@ def build_vocab(path_to_training_data, path_to_db_info):
                       batch_first=True)
 
     train_data, valid_data, test_data = TabularDataset.splits(
-        path=path_to_training_data, format='csv', skip_header=True,
+        path=data_dir, format='csv', skip_header=True,
         train='train.csv', validation='dev.csv', test='test.csv',
         fields=[
             ('tvBench_id', None),
@@ -63,7 +56,7 @@ def build_vocab(path_to_training_data, path_to_db_info):
     )
 
     db_information = TabularDataset(
-        path=path_to_db_info,
+        path=db_info,
         format='csv',
         skip_header=True,
         fields=[
@@ -91,13 +84,10 @@ def build_vocab(path_to_training_data, path_to_db_info):
     TRG = SRC
     TOK_TYPES.build_vocab(train_data, valid_data, test_data, db_information, min_freq=2)
 
-    BATCH_SIZE = 128
 
     train_iterator, valid_iterator, test_iterator = BucketIterator.splits(
         (train_data, valid_data, test_data), sort=False,
-        batch_size=BATCH_SIZE,
+        batch_size=batch_size,
         device=device)
 
-    my_max_length = 128
-
-    return SRC, TRG, TOK_TYPES, BATCH_SIZE, train_iterator, valid_iterator, test_iterator, my_max_length
+    return SRC, TRG, TOK_TYPES, batch_size, train_iterator, valid_iterator, test_iterator, max_input_length

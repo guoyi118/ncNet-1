@@ -19,6 +19,8 @@ import time
 import math
 import matplotlib.pyplot as plt
 
+import argparse
+
 
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -106,6 +108,27 @@ def epoch_time(start_time, end_time):
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='train.py')
+
+    parser.add_argument('-data_dir', required=False, default='./dataset/dataset_final/',
+                        help='Path to dataset for building vocab')
+    parser.add_argument('-db_info', required=False, default='./dataset/database_information.csv',
+                        help='Path to database tables/columns information, for building vocab')
+    parser.add_argument('-output_dir', type=str, default='./save_models/')
+
+    parser.add_argument('-epoch', type=int, default=100,
+                        help='the number of epoch for training')
+    parser.add_argument('-learning_rate', type=float, default=0.0005)
+    parser.add_argument('-batch_size', type=int, default=128)
+    parser.add_argument('-max_input_length', type=int, default=128)
+
+    # parser.add_argument('-n_head', type=int, default=8)
+    # parser.add_argument('-dropout', type=float, default=0.1)
+    opt = parser.parse_args()
+
+    ###################################
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     SEED = 1234
 
@@ -115,12 +138,13 @@ if __name__ == '__main__':
     torch.cuda.manual_seed(SEED)
     torch.backends.cudnn.deterministic = True
 
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     print("------------------------------\n| Build vocab start ... | \n------------------------------")
     SRC, TRG, TOK_TYPES, BATCH_SIZE, train_iterator, valid_iterator, test_iterator, my_max_length =  build_vocab(
-        path_to_training_data = './dataset/dataset_final/',
-        path_to_db_info = './dataset/database_information.csv'
+        data_dir=opt.data_dir,
+        db_info=opt.db_info,
+        batch_size=opt.batch_size,
+        max_input_length=opt.max_input_length
     )
     print("------------------------------\n| Build vocab end ... | \n------------------------------")
 
@@ -136,6 +160,7 @@ if __name__ == '__main__':
     ENC_DROPOUT = 0.1
     DEC_DROPOUT = 0.1
 
+    print("------------------------------\n| Build encoder of the ncNet ... | \n------------------------------")
     enc = Encoder(INPUT_DIM,
                   HID_DIM,
                   ENC_LAYERS,
@@ -146,7 +171,7 @@ if __name__ == '__main__':
                   TOK_TYPES,
                   my_max_length
                  )
-
+    print("------------------------------\n| Build decoder of the ncNet ... | \n------------------------------")
     dec = Decoder(OUTPUT_DIM,
                   HID_DIM,
                   DEC_LAYERS,
@@ -160,46 +185,47 @@ if __name__ == '__main__':
     SRC_PAD_IDX = SRC.vocab.stoi[SRC.pad_token]
     TRG_PAD_IDX = TRG.vocab.stoi[TRG.pad_token]
 
-    model = Seq2Seq(enc, dec, SRC, SRC_PAD_IDX, TRG_PAD_IDX, device).to(device) # define the Seq2Seq model
+    print("------------------------------\n| Build the ncNet structure... | \n------------------------------")
+    ncNet = Seq2Seq(enc, dec, SRC, SRC_PAD_IDX, TRG_PAD_IDX, device).to(device) # define the transformer-based ncNet
 
-    model.apply(initialize_weights)
+    print("------------------------------\n| Init for training ... | \n------------------------------")
+    ncNet.apply(initialize_weights)
 
-    LEARNING_RATE = 0.0005
+    LEARNING_RATE = opt.learning_rate
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
+    optimizer = torch.optim.Adam(ncNet.parameters(), lr=LEARNING_RATE)
 
     criterion = nn.CrossEntropyLoss(ignore_index=TRG_PAD_IDX)
 
-    print("------------------------------\n| Training start ... | \n------------------------------")
-
-
-    N_EPOCHS = 100
+    N_EPOCHS = opt.epoch
     CLIP = 1
 
     train_loss_list, valid_loss_list = list(), list()
 
     best_valid_loss = float('inf')
 
+    print("------------------------------\n| Training start ... | \n------------------------------")
+
     for epoch in range(N_EPOCHS):
 
         start_time = time.time()
 
-        train_loss = train(model, train_iterator, optimizer, criterion, CLIP)
-        valid_loss = evaluate(model, valid_iterator, criterion)
+        train_loss = train(ncNet, train_iterator, optimizer, criterion, CLIP)
+        valid_loss = evaluate(ncNet, valid_iterator, criterion)
 
         end_time = time.time()
 
         epoch_mins, epoch_secs = epoch_time(start_time, end_time)
 
-        # 保存最优的model
+        # save the best trained model
         if valid_loss < best_valid_loss:
-            print('△○△○△○△○△○△○△○△○\nSave BEST model!\n△○△○△○△○△○△○△○△○△○')
+            print('△○△○△○△○△○△○△○△○\nSave the BEST model!\n△○△○△○△○△○△○△○△○△○')
             best_valid_loss = valid_loss
-            torch.save(model.state_dict(), './save_models/model_best.pt')
+            torch.save(ncNet.state_dict(), opt.output_dir + 'model_best.pt')
 
-        # 保存每一个epoch的model
-        print('△○△○△○△○△○△○△○△○\nSave model!\n△○△○△○△○△○△○△○△○△○')
-        torch.save(model.state_dict(), './save_models/model_' + str(epoch + 1) + '.pt')
+        # save model on each epoch
+        print('△○△○△○△○△○△○△○△○\nSave ncNet!\n△○△○△○△○△○△○△○△○△○')
+        torch.save(ncNet.state_dict(), opt.output_dir + 'model_' + str(epoch + 1) + '.pt')
 
         train_loss_list.append(train_loss)
         valid_loss_list.append(valid_loss)

@@ -39,7 +39,7 @@ def guide_decoder_by_candidates(trg_field, input_source, table_columns, topk_ids
     table_columns: all columns in this table.
     topk_tokens: the top-k candidate predicted tokens
     current_token_type = x|y|groupby-axis|bin x|  if_template:[orderby-axis, order-type, chart_type]
-    pred_tokens_list: 已经预测了的tokens
+    pred_tokens_list: the predicted tokens
     '''
     # candidate columns mentioned by the NL query
     candidate_columns = get_candidate_columns(input_source)

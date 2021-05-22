@@ -10,7 +10,7 @@ Code for ncNet
 
 * Download the Spider data [here](https://drive.google.com/drive/folders/1wmJTcC9R6ah0jBo_ONaZW3ykx5iGMx9j?usp=sharing) and unzip under `./dataset/` directory
 
-##### Runing Example
+#### Runing Example
 
 Open the `test_ncNet.ipynb` to try the running example.
 

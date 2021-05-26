@@ -159,10 +159,10 @@ class VisRendering(object):
         df_json = df.to_json(orient='records')
         return json.loads(df_json)
 
-    def parse_output_query(self, query):
+    def parse_output_query(self, path_to_db, db_id, table_id, query):
         # TODO how to handle binning operation?
         '''
-        take the output query (format as SIGMOD'20) as input, and output:
+        take the output query (format as nvBench-SIGMOD 2021) as input, and output:
         vis_query = {
             'vis_part': ...
             'data_part':{
@@ -210,15 +210,73 @@ class VisRendering(object):
         axis = query_list[query_list.index('select') + 1:query_list.index('from')]
         axis[:] = [x for x in axis if x != ',']
 
-        if len(axis) == 2:
-            vis_query['vega_mapping']['x'] = axis[0]
-            vis_query['vega_mapping']['y'] = axis[1]
-        elif len(axis) == 3:
-            vis_query['vega_mapping']['x'] = axis[0]
-            vis_query['vega_mapping']['y'] = axis[1]
-            vis_query['vega_mapping']['color'] = axis[2]
-        else:
-            print('unexpected the number of axies: ', len(axis))
+        # get the column types
+        try:
+            con = sqlite3.connect(path_to_db + '/' + db_id + '/' + db_id + '.sqlite')
+            name_type_pairs = pd.read_sql_query('PRAGMA TABLE_INFO('+table_id+')', con)
+            col_names_types = dict(zip(name_type_pairs['name'], name_type_pairs['type']))
+            agg_func = ['sum', 'avg', 'count', 'cnt', 'max', 'min']
+            agg_col_name_types = dict()
+            for k, v in col_names_types.items():
+                for agg in agg_func:
+                    agg_col_name_types[agg+'('+k+')'] = v
+
+            def Merge(dict1, dict2):
+                res = {**dict1, **dict2}
+                return res
+            col_names_types = Merge(col_names_types, agg_col_name_types)
+
+            if len(axis) == 2:
+                if col_names_types[axis[0]] == 'REAL' or col_names_types[axis[0]] == 'INTEGER':
+                    vis_query['vega_mapping']['y'] = axis[0]
+                    vis_query['vega_mapping']['x'] = axis[1]
+                else:
+                    vis_query['vega_mapping']['x'] = axis[0]
+                    vis_query['vega_mapping']['y'] = axis[1]
+            elif len(axis) == 3:
+                number_cnt = [0,0,0]
+                for i in range(len(axis)):
+                    if col_names_types[axis[i]] in ['REAL', 'INTEGER']:
+                        number_cnt[i] = 1
+                if sum(number_cnt) == 2: # 2 numbers + 1 category
+                    vis_query['vega_mapping']['color'] = axis[number_cnt.index(0)]
+                    if number_cnt.index(0) == 0:
+                        vis_query['vega_mapping']['x'] = axis[1]
+                        vis_query['vega_mapping']['y'] = axis[2]
+                    elif number_cnt.index(0) == 1:
+                        vis_query['vega_mapping']['x'] = axis[0]
+                        vis_query['vega_mapping']['y'] = axis[2]
+                    else:
+                        vis_query['vega_mapping']['x'] = axis[0]
+                        vis_query['vega_mapping']['y'] = axis[1]
+                elif sum(number_cnt) == 1: # 1 number + 2 categories
+                    vis_query['vega_mapping']['y'] = axis[number_cnt.index(1)]
+                    if number_cnt.index(1) == 0:
+                        vis_query['vega_mapping']['x'] = axis[1]
+                        vis_query['vega_mapping']['color'] = axis[2]
+                    elif number_cnt.index(1) == 1:
+                        vis_query['vega_mapping']['x'] = axis[0]
+                        vis_query['vega_mapping']['color'] = axis[2]
+                    else:
+                        vis_query['vega_mapping']['x'] = axis[0]
+                        vis_query['vega_mapping']['color'] = axis[1]
+                else:
+                    vis_query['vega_mapping']['x'] = axis[0]
+                    vis_query['vega_mapping']['y'] = axis[1]
+                    vis_query['vega_mapping']['color'] = axis[2]
+            else:
+                print('unexpected the number of axies: ', len(axis))
+        except:
+
+            if len(axis) == 2:
+                vis_query['vega_mapping']['x'] = axis[0]
+                vis_query['vega_mapping']['y'] = axis[1]
+            elif len(axis) == 3:
+                vis_query['vega_mapping']['x'] = axis[0]
+                vis_query['vega_mapping']['y'] = axis[1]
+                vis_query['vega_mapping']['color'] = axis[2]
+            else:
+                print('unexpected the number of axies: ', len(axis))
 
         if 'order' in query_list and query_list[query_list.index('order') + 1] == 'by':
             sort_axis = query_list[query_list.index('order') + 2]

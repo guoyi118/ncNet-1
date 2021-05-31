@@ -180,7 +180,7 @@ def translate_sentence(sentence, src_field, trg_field, TOK_TYPES, tok_types, mod
     src_mask = model.make_src_mask(src_tensor)
 
     # visibility matrix
-    batch_visibility_matrix = model.make_visibility_matrix(src_tensor, SRC)
+    batch_visibility_matrix = model.make_visibility_matrix(src_tensor, src_field)
 
     with torch.no_grad():
         enc_src, enc_attention = model.encoder(src_tensor, src_mask, tok_types_tensor, batch_visibility_matrix)
@@ -259,8 +259,6 @@ def translate_sentence_with_guidance(db_id, table_id, sentence, src_field, trg_f
         with torch.no_grad():
             output, attention = model.decoder(trg_tensor, enc_src, trg_mask, src_mask)
 
-        #         print('-------------------------------')
-        #         print(i)
 
         table_columns = []
         try:  # get all columns in a table

@@ -10,40 +10,41 @@ import re
 import os
 import time
 
-def is_date(string, fuzzy=False):
-    """
-    Return whether the string can be interpreted as a date.
-
-    :param string: str, string to check for date
-    :param fuzzy: bool, ignore unknown tokens in string if True
-    """
-    try:
-        parse(string, fuzzy=fuzzy)
-        return True
-
-    except ValueError:
-        return False
-
-def levenshteinSimilarity(s1, s2):
-    # Edit Similarity
-    s1, s2 = s1.lower(), s2.lower()
-    if len(s1) > len(s2):
-        s1, s2 = s2, s1
-
-    distances = range(len(s1) + 1)
-    for i2, c2 in enumerate(s2):
-        distances_ = [i2+1]
-        for i1, c1 in enumerate(s1):
-            if c1 == c2:
-                distances_.append(distances[i1])
-            else:
-                distances_.append(1 + min((distances[i1], distances[i1 + 1], distances_[-1])))
-        distances = distances_
-    return 1 - distances[-1]/max(len(s1)+1,len(s2)+1) # [0,1]
 
 class ProcessData4Training(object):
     def __init__(self, db_url):
         self.db_url = db_url
+
+    # def is_date(string, fuzzy=False):
+    #     """
+    #     Return whether the string can be interpreted as a date.
+    #
+    #     :param string: str, string to check for date
+    #     :param fuzzy: bool, ignore unknown tokens in string if True
+    #     """
+    #     try:
+    #         parse(string, fuzzy=fuzzy)
+    #         return True
+    #
+    #     except ValueError:
+    #         return False
+    #
+    # def levenshteinSimilarity(s1, s2):
+    #     # Edit Similarity
+    #     s1, s2 = s1.lower(), s2.lower()
+    #     if len(s1) > len(s2):
+    #         s1, s2 = s2, s1
+    #
+    #     distances = range(len(s1) + 1)
+    #     for i2, c2 in enumerate(s2):
+    #         distances_ = [i2 + 1]
+    #         for i1, c1 in enumerate(s1):
+    #             if c1 == c2:
+    #                 distances_.append(distances[i1])
+    #             else:
+    #                 distances_.append(1 + min((distances[i1], distances[i1 + 1], distances_[-1])))
+    #         distances = distances_
+    #     return 1 - distances[-1] / max(len(s1) + 1, len(s2) + 1)  # [0,1]
 
     def get_table_columns(self, db_id):
         table_columns = dict()
@@ -261,7 +262,7 @@ class ProcessData4Training(object):
 
                         # get a list of mentioned values in the NL question
                         col_names, value_names = self.get_mentioned_values_in_NL_question(
-                            row['db_id'], table_name, row['question'], db_table_col_val_map=finding_map
+                            row['db_id'], table_name, row['question'], db_table_col_val_map=finding_map # TODO is a bug here?
                         )
                         col_names = ' '.join(str(e) for e in col_names)
                         col_names = table_name + ' ' + col_names

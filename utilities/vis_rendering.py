@@ -279,16 +279,19 @@ class VisRendering(object):
                 print('unexpected the number of axies: ', len(axis))
 
         if 'order' in query_list and query_list[query_list.index('order') + 1] == 'by':
-            sort_axis = query_list[query_list.index('order') + 2]
-            sort_order = query_list[query_list.index('order') + 3]
-            if sort_axis == vis_query['vega_mapping']['x'] and sort_order == 'desc':
-                vis_query['vega_mapping']['sort'] = '-x'
-            if sort_axis == vis_query['vega_mapping']['x'] and sort_order == 'asc':
-                vis_query['vega_mapping']['sort'] = 'x'
-            if sort_axis == vis_query['vega_mapping']['y'] and sort_order == 'desc':
-                vis_query['vega_mapping']['sort'] = '-y'
-            if sort_axis == vis_query['vega_mapping']['y'] and sort_order == 'asc':
-                vis_query['vega_mapping']['sort'] = 'y'
+            try:
+                sort_axis = query_list[query_list.index('order') + 2]
+                sort_order = query_list[query_list.index('order') + 3]
+                if sort_axis == vis_query['vega_mapping']['x'] and sort_order == 'desc':
+                    vis_query['vega_mapping']['sort'] = '-x'
+                if sort_axis == vis_query['vega_mapping']['x'] and sort_order == 'asc':
+                    vis_query['vega_mapping']['sort'] = 'x'
+                if sort_axis == vis_query['vega_mapping']['y'] and sort_order == 'desc':
+                    vis_query['vega_mapping']['sort'] = '-y'
+                if sort_axis == vis_query['vega_mapping']['y'] and sort_order == 'asc':
+                    vis_query['vega_mapping']['sort'] = 'y'
+            except:
+                pass
 
         return vis_query
 

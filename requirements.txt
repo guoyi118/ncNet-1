@@ -1,3 +1,4 @@
 py_stringsimjoin
 python-dateutil
 torchtext==0.8
+torch==1.7

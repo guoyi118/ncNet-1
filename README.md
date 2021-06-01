@@ -4,7 +4,8 @@ Code for ncNet
 ## Environment Setup
 
 * `Python3.6`
-* `Pytorch 1.8.1` or higher
+* `PyTorch 1.7` 
+* `torchtext 0.8`
 
 Install Python dependency via `pip install -r requirements.txt` when the environment of Python and Pytorch is setup.
 

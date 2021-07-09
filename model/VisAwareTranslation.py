@@ -101,27 +101,40 @@ def guide_decoder_by_candidates(trg_field, input_source, table_columns, topk_ids
                         break
                 if is_in_topk == False and len(candidate_columns) > 0:
                     agg, tok = get_y_from_aggy(topk_tokens[0])
-                    if agg != None:
-                        best_token = agg+'('+candidate_columns[0]+')'
-                        best_id = trg_field.vocab.stoi[best_token]
+                    if pred_tokens_list[pred_tokens_list.index('visualize') + 1] == 'scatter':
+                        if pred_tokens_list[pred_tokens_list.index('select') + 1] == candidate_columns[0]:
+                            if agg != None:
+                                if len(candidate_columns) > 1:
+                                    best_token = agg + '(' + candidate_columns[1] + ')'
+                                else:
+                                    best_token = agg + '(' + candidate_columns[0] + ')'
+                                best_id = trg_field.vocab.stoi[best_token]
+                            else:
+                                if len(candidate_columns) > 1:
+                                    best_token = candidate_columns[1]
+                                else:
+                                    best_token = candidate_columns[0]
+                                best_id = trg_field.vocab.stoi[best_token]
                     else:
-                        best_token = candidate_columns[0]
-                        best_id = trg_field.vocab.stoi[best_token]
-
-            if y in table_columns and y not in candidate_columns:
-                # correct:
-                #                 print('Case-2->correct2')
-                for tok in topk_tokens:
-                    agg, tok = get_y_from_aggy(tok)
-                    if tok in candidate_columns and tok in table_columns:
                         if agg != None:
-                            best_token = agg+'('+tok+')'
+                            best_token = agg+'('+candidate_columns[0]+')'
                             best_id = trg_field.vocab.stoi[best_token]
                         else:
-                            best_token = tok
+                            best_token = candidate_columns[0]
                             best_id = trg_field.vocab.stoi[best_token]
-                        is_in_topk = True
-                        break
+
+            # if y in table_columns and y not in candidate_columns:
+            #     for tok in topk_tokens:
+            #         agg, tok = get_y_from_aggy(tok)
+            #         if tok in candidate_columns and tok in table_columns:
+            #             if agg != None:
+            #                 best_token = agg+'('+tok+')'
+            #                 best_id = trg_field.vocab.stoi[best_token]
+            #             else:
+            #                 best_token = tok
+            #                 best_id = trg_field.vocab.stoi[best_token]
+            #             is_in_topk = True
+            #             break
 
     if current_token_type == 'bin_axis':  # bin [x] by ..
         best_token = pred_tokens_list[pred_tokens_list.index('select')+1]
@@ -210,7 +223,7 @@ def translate_sentence(sentence, src_field, trg_field, TOK_TYPES, tok_types, mod
 
 def translate_sentence_with_guidance(db_id, table_id, sentence, src_field, trg_field,
                                      TOK_TYPES, tok_types, SRC, model, db_tables_columns,
-                                     device, max_len=128):
+                                     device, max_len=128, show_progress = False):
     model.eval()
 
     # process the tok_type
@@ -259,7 +272,6 @@ def translate_sentence_with_guidance(db_id, table_id, sentence, src_field, trg_f
         with torch.no_grad():
             output, attention = model.decoder(trg_tensor, enc_src, trg_mask, src_mask)
 
-
         table_columns = []
         try:  # get all columns in a table
             table_columns = db_tables_columns[db_id][table_id]
@@ -268,6 +280,7 @@ def translate_sentence_with_guidance(db_id, table_id, sentence, src_field, trg_f
             table_columns = []
 
         if current_token_type != 'table_name':
+            # get top-3 candidates tokens
             topk_ids = torch.topk(output, k=3, dim=2, sorted=True).indices[:, -1, :].tolist()[0]
             topk_tokens = [trg_field.vocab.itos[tok_id] for tok_id in topk_ids]
 
@@ -278,22 +291,27 @@ def translate_sentence_with_guidance(db_id, table_id, sentence, src_field, trg_f
                 trg_field, sentence, table_columns, topk_ids,
                 topk_tokens, current_token_type, trg_tokens
             )
+
+            if show_progress == True:
+                if current_token_type == None:
+                    print('-------------------\nCurrent Token Type: Query Sketch Part , top-3 tokens: [{}]'.format(', '.join(topk_tokens)))
+                else:
+                    print('-------------------\nCurrent Token Type: {} , original top-3 tokens: [{}] , the final tokens by VisAwareTranslation: {}'.format(current_token_type, ', '.join(topk_tokens), pred_token))
+
         else:
-            '''
-            only for single table !!!
-            '''
+            # prediction the table name, note that the following codes are designed for single table !!!
             pred_token = table_id
             pred_id = trg_field.vocab.stoi[pred_token]
+            if show_progress == True:
+                print('-------------------\nCurrent Token Type: Table Name , top-3 tokens: [{}]'.format(current_token_type, pred_token))
+
 
         current_token_type = None
-
-        #         print(pred_id, pred_token)
-        #         print('\n')
 
         trg_indexes.append(pred_id)
         trg_tokens.append(pred_token)
 
-        # update the current_token_type and pred_aix here
+        # update the current_token_type and pred_axis here
         if i == 0:
             current_token_type = 'chart_type'
 

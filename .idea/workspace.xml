@@ -2,12 +2,7 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="15de1370-6453-4725-982a-a8f8811170dd" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.ipynb_checkpoints/ncNet-checkpoint.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/.ipynb_checkpoints/ncNet-checkpoint.ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/model/VisAwareTranslation.py" beforeDir="false" afterPath="$PROJECT_DIR$/model/VisAwareTranslation.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/ncNet.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/ncNet.ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ncNet.py" beforeDir="false" afterPath="$PROJECT_DIR$/ncNet.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/test.py" beforeDir="false" afterPath="$PROJECT_DIR$/test.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -74,8 +69,8 @@
       <file pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/model/VisAwareTranslation.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="463">
-              <caret line="115" column="68" selection-start-line="115" selection-start-column="68" selection-end-line="115" selection-end-column="68" />
+            <state relative-caret-position="399">
+              <caret line="123" column="27" selection-start-line="123" selection-start-column="27" selection-end-line="123" selection-end-column="27" />
               <folding>
                 <element signature="e#25#34#0" expanded="true" />
               </folding>
@@ -382,12 +377,12 @@
       <workItem from="1622204729526" duration="2123000" />
       <workItem from="1622423111100" duration="22580000" />
       <workItem from="1623813403067" duration="537000" />
-      <workItem from="1625640732039" duration="11996000" />
+      <workItem from="1625640732039" duration="12345000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="84545000" />
+    <option name="totallyTimeSpent" value="84894000" />
   </component>
   <component name="TodoView">
     <todo-panel id="selected-file">
@@ -710,8 +705,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/model/VisAwareTranslation.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="463">
-          <caret line="115" column="68" selection-start-line="115" selection-start-column="68" selection-end-line="115" selection-end-column="68" />
+        <state relative-caret-position="399">
+          <caret line="123" column="27" selection-start-line="123" selection-start-column="27" selection-end-line="123" selection-end-column="27" />
           <folding>
             <element signature="e#25#34#0" expanded="true" />
           </folding>

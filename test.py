@@ -134,7 +134,7 @@ if __name__ == "__main__":
 
             tok_types = row['token_types']
 
-            #     translation,  attention = translate_sentence(
+            #     translation,  attention, enc_attention = translate_sentence(
             #         src, SRC, TRG, TOK_TYPES, tok_types, ncNet, device, my_max_length
             #     )
 

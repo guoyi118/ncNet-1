@@ -6,7 +6,7 @@ import re
 import os
 
 import torch
-from model.VisAwareTranslation import translate_sentence_with_guidance, postprocessing
+from model.VisAwareTranslation import translate_sentence_with_guidance, translate_sentence, postprocessing
 from model.Model import Seq2Seq
 from model.Encoder import Encoder
 from model.Decoder import Decoder
@@ -141,7 +141,7 @@ class ncNet(object):
         return self.data.head()
 
 
-    def nl2vis(self, nl_question, chart_template=None, show_progress=None):
+    def nl2vis(self, nl_question, chart_template=None, show_progress=None, visualization_aware_translation=True):
         # process and the nl_question and the chart template as input.
         # call the model to perform prediction
         # render the predicted query
@@ -151,39 +151,81 @@ class ncNet(object):
         # print('input_src:', input_src)
         # print('token_types:', token_types)
 
-        pred_query, attention, enc_attention = translate_sentence_with_guidance(
-            self.db_id, self.table_id, input_src, self.SRC, self.TRG, self.TOK_TYPES, token_types,
-            self.SRC, self.ncNet, self.db_tables_columns, self.device, self.my_max_length, show_progress
-        )
+        if visualization_aware_translation == True:
+            print("\nGenerate the visualization by visualization-aware translation:\n")
 
-        pred_query = ' '.join(pred_query).replace(' <eos>', '').lower()
-        if chart_template != None:
-            pred_query = postprocessing(pred_query, pred_query, True, input_src)
+            pred_query, attention, enc_attention = translate_sentence_with_guidance(
+                self.db_id, self.table_id, input_src, self.SRC, self.TRG, self.TOK_TYPES, token_types,
+                self.SRC, self.ncNet, self.db_tables_columns, self.device, self.my_max_length, show_progress
+            )
+
+            pred_query = ' '.join(pred_query).replace(' <eos>', '').lower()
+            if chart_template != None:
+                pred_query = postprocessing(pred_query, pred_query, True, input_src)
+            else:
+                pred_query = postprocessing(pred_query, pred_query, False, input_src)
+
+            pred_query = ' '.join(pred_query.replace('"', "'").split())
+
+            print('[NL Question]:', nl_question)
+            print('[Chart Template]:', chart_template)
+            print('[Predicted VIS Query]:', pred_query)
+
+            create_vis = VisRendering()
+
+            vis_query = create_vis.parse_output_query(
+                './dataset/database/',
+                self.db_id,
+                self.table_id,
+                pred_query
+            )
+
+            data4vis = create_vis.query_sqlite3(
+                './dataset/database/',
+                self.db_id,
+                vis_query['data_part']['sql_part']
+            )
+            print('[The Predicted VIS Result]:')
+            create_vis.render_vis(data4vis, vis_query)
+            print('\n')
+
         else:
-            pred_query = postprocessing(pred_query, pred_query, False, input_src)
-        # print('[NL Question]:', nl_question)
-        # print('[Chart Template]:', chart_template)
-        # print('[Predicted VIS Query]:', ' '.join(pred_query.replace('"', "'").split()))
 
-        create_vis = VisRendering()
+            print("\nGenerate the visualization by greedy decoding:\n")
 
-        vis_query = create_vis.parse_output_query(
-            './dataset/database/',
-            self.db_id,
-            self.table_id,
-            ' '.join(pred_query.replace('"', "'").split())
-        )
+            pred_query,  attention, enc_attention = translate_sentence(
+                input_src, self.SRC, self.TRG, self.TOK_TYPES, token_types, self.ncNet, self.device, self.my_max_length
+            )
 
-        data4vis = create_vis.query_sqlite3(
-            './dataset/database/',
-            self.db_id,
-            vis_query['data_part']['sql_part']
-        )
-        print('The Predicted VIS Query:')
-        print(pred_query)
-        print('The Predicted VIS Result:')
-        create_vis.render_vis(data4vis, vis_query)
-        print('\n')
+            pred_query = ' '.join(pred_query).replace(' <eos>', '').lower()
+            if chart_template != None:
+                pred_query = postprocessing(pred_query, pred_query, True, input_src)
+            else:
+                pred_query = postprocessing(pred_query, pred_query, False, input_src)
+
+            pred_query = ' '.join(pred_query.replace('"', "'").split())
+
+            print('[NL Question]:', nl_question)
+            print('[Chart Template]:', chart_template)
+            print('[Predicted VIS Query]:', pred_query)
+
+            create_vis = VisRendering()
+
+            vis_query = create_vis.parse_output_query(
+                './dataset/database/',
+                self.db_id,
+                self.table_id,
+                pred_query
+            )
+
+            data4vis = create_vis.query_sqlite3(
+                './dataset/database/',
+                self.db_id,
+                vis_query['data_part']['sql_part']
+            )
+            print('[The Predicted VIS Result]:')
+            create_vis.render_vis(data4vis, vis_query)
+
 
 
 

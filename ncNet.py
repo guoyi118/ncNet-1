@@ -120,13 +120,14 @@ class ncNet(object):
             }
         }
 
-        # write to sqlite3 database
-        if not os.path.exists('./dataset/database/'+self.db_id):
-            os.makedirs('./dataset/database/'+self.db_id)
+        if data_type == 'json' or data_type == 'sqlite3':
+            # write to sqlite3 database
+            if not os.path.exists('./dataset/database/'+self.db_id):
+                os.makedirs('./dataset/database/'+self.db_id)
 
-        conn = sqlite3.connect('./dataset/database/'+self.db_id+'/'+self.db_id+'.sqlite')
+            conn = sqlite3.connect('./dataset/database/'+self.db_id+'/'+self.db_id+'.sqlite')
 
-        self.data.to_sql(self.table_id, conn, if_exists='replace', index=False)
+            self.data.to_sql(self.table_id, conn, if_exists='replace', index=False)
 
         self.DataProcesser = ProcessData4Training(db_url='./dataset/database')
         self.db_table_col_val_map = dict()
@@ -140,7 +141,7 @@ class ncNet(object):
         return self.data.head()
 
 
-    def nl2vis(self, nl_question, chart_template=None):
+    def nl2vis(self, nl_question, chart_template=None, show_progress=None):
         # process and the nl_question and the chart template as input.
         # call the model to perform prediction
         # render the predicted query
@@ -152,7 +153,7 @@ class ncNet(object):
 
         pred_query, attention, enc_attention = translate_sentence_with_guidance(
             self.db_id, self.table_id, input_src, self.SRC, self.TRG, self.TOK_TYPES, token_types,
-            self.SRC, self.ncNet, self.db_tables_columns, self.device, self.my_max_length
+            self.SRC, self.ncNet, self.db_tables_columns, self.device, self.my_max_length, show_progress
         )
 
         pred_query = ' '.join(pred_query).replace(' <eos>', '').lower()
@@ -178,8 +179,9 @@ class ncNet(object):
             self.db_id,
             vis_query['data_part']['sql_part']
         )
-
-        print('The Predicted VIS:')
+        print('The Predicted VIS Query:')
+        print(pred_query)
+        print('The Predicted VIS Result:')
         create_vis.render_vis(data4vis, vis_query)
         print('\n')
 

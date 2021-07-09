@@ -38,7 +38,7 @@ if __name__ == "__main__":
                         help='Path to database schema file, formatting as json')
     parser.add_argument('-batch_size', type=int, default=128)
     parser.add_argument('-max_input_length', type=int, default=128)
-
+    parser.add_argument('-show_progress', required=False, default=False, help='True to show details during decoding')
     opt = parser.parse_args()
     print("the input parameters: ", opt)
 
@@ -106,6 +106,8 @@ if __name__ == "__main__":
     ncNet.load_state_dict(torch.load(opt.model, map_location=device))
 
 
+    print("------------------------------\n|          Testing  ...      | \n------------------------------")
+
     nl_acc = []
     nl_chart_acc = []
 
@@ -138,7 +140,7 @@ if __name__ == "__main__":
 
             translation, attention, enc_attention = translate_sentence_with_guidance(
                 row['db_id'], gold_query.split(' ')[gold_query.split(' ').index('from') + 1],
-                src, SRC, TRG, TOK_TYPES, tok_types, SRC, ncNet, db_tables_columns, device, my_max_length
+                src, SRC, TRG, TOK_TYPES, tok_types, SRC, ncNet, db_tables_columns, device, my_max_length, show_progress=opt.show_progress
             )
 
             pred_query = ' '.join(translation).replace(' <eos>', '').lower()

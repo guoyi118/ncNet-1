@@ -262,7 +262,8 @@ def translate_sentence_with_guidance(db_id, table_id, sentence, src_field, trg_f
     trg_tokens = []
 
     current_token_type = None
-
+    if show_progress == True:
+        print('Show the details in each tokens:')
     for i in range(max_len):
 
         trg_tensor = torch.LongTensor(trg_indexes).unsqueeze(0).to(device)

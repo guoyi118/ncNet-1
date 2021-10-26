@@ -28,15 +28,14 @@ class Encoder(nn.Module):
         A simple lookup table that stores embeddings of a fixed dictionary and size.
         This module is often used to store word embeddings and retrieve them using indices. 
         The input to the module is a list of indices, and the output is the corresponding word embeddings.
-        - num_embeddings (int) – size of the dictionary of embeddings 嵌入层字典的大小（单词本里单词个数）
-        - embedding_dim (int) – the size of each embedding vector 每个产出向量的大小
-        输入输出第一维度默认相同
+        - num_embeddings (int) – size of the dictionary of embeddings  
+        - embedding_dim (int) – the size of each embedding vector 
         '''
         self.tok_embedding = nn.Embedding(input_dim, hid_dim)  # 初始化Embedding
 
         self.pos_embedding = nn.Embedding(max_length, hid_dim)
 
-        tok_types_num = len(TOK_TYPES.vocab.itos)  # TODO len(TOK_TYPES.vocab.itos), the number of token type
+        tok_types_num = len(TOK_TYPES.vocab.itos)
         self.tok_types_embedding = nn.Embedding(tok_types_num, hid_dim)
 
         self.layers = nn.ModuleList([EncoderLayer(hid_dim,
@@ -50,24 +49,21 @@ class Encoder(nn.Module):
 
         self.scale = torch.sqrt(torch.FloatTensor([hid_dim])).to(device)
 
-    def forward(self, src, src_mask, tok_types, batch_matrix):  ########
-        #         print('Encoder->forward:', src, src.size())
+    def forward(self, src, src_mask, tok_types, batch_matrix):
 
         batch_size = src.shape[0]
         src_len = src.shape[1]
 
         pos = torch.arange(0, src_len).unsqueeze(0).repeat(batch_size, 1).to(self.device)
 
-        src = self.dropout(
-            (self.tok_embedding(src) * self.scale) + self.tok_types_embedding(tok_types) + self.pos_embedding(pos))
+        src = self.dropout((self.tok_embedding(src) * self.scale) + self.tok_types_embedding(tok_types) + self.pos_embedding(pos))
 
         # src = [batch size, src len, hid dim]
 
         for layer in self.layers:
-            src, enc_attention = layer(src, src_mask, batch_matrix)  ########
+            src, enc_attention = layer(src, src_mask, batch_matrix)
 
         # src = [batch size, src len, hid dim]
-        # print('Encoder->forward:',src,src.size())
         return src, enc_attention
 
 

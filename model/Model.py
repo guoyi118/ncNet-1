@@ -42,7 +42,7 @@ class Seq2Seq(nn.Module):
         batch_matrix = []
         for each_src in src:
             v_matrix = create_visibility_matrix(SRC, each_src)
-            n_heads_matrix = [v_matrix] * 8 # TODO 8 is the number of heads ...
+            n_heads_matrix = [v_matrix] * 8 # TODO: 8 is the number of heads ...
             batch_matrix.append(np.array(n_heads_matrix))
         batch_matrix = np.array(batch_matrix)
 
@@ -51,12 +51,8 @@ class Seq2Seq(nn.Module):
 
     def make_src_mask(self, src):
         # src = [batch size, src len]
-        #         print(src)
-        #         print(src.size())
         src_mask = (src != self.src_pad_idx).unsqueeze(1).unsqueeze(2)
-        #         print(src_mask)
-        #         print(src_mask.size())
-        #         print('==========\n')
+
         # src_mask = [batch size, 1, 1, src len]
 
         return src_mask
@@ -87,12 +83,12 @@ class Seq2Seq(nn.Module):
         src_mask = self.make_src_mask(src)
         trg_mask = self.make_trg_mask(trg)
 
-        batch_visibility_matrix = self.make_visibility_matrix(src, SRC)  #######
+        batch_visibility_matrix = self.make_visibility_matrix(src, SRC)
 
         # src_mask = [batch size, 1, 1, src len]
         # trg_mask = [batch size, 1, trg len, trg len]
 
-        enc_src, enc_attention = self.encoder(src, src_mask, tok_types, batch_visibility_matrix)  ######
+        enc_src, enc_attention = self.encoder(src, src_mask, tok_types, batch_visibility_matrix)
 
         # enc_src = [batch size, src len, hid dim]
 

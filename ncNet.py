@@ -12,8 +12,10 @@ from model.Encoder import Encoder
 from model.Decoder import Decoder
 from preprocessing.build_vocab import build_vocab
 
-from utilities.vis_rendering import VisRendering
+
+from utilities.vis_rendering import VegaZero2VegaLite
 from preprocessing.process_dataset import ProcessData4Training
+from vega import VegaLite
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
@@ -23,11 +25,11 @@ class ncNet(object):
         self.db_id = ''
         self.table_id = ''
         self.db_tables_columns = None
-        self.trained_model = trained_model # ./save_models/model_best.pt
+        self.db_tables_columns_types = None
+        self.trained_model = trained_model
 
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-        # TODO 能load已经build好的vocab吗？
         self.SRC, self.TRG, self.TOK_TYPES, BATCH_SIZE, train_iterator, valid_iterator, test_iterator, self.my_max_length = build_vocab(
             data_dir='./dataset/dataset_final/',
             db_info='./dataset/database_information.csv',
@@ -84,6 +86,9 @@ class ncNet(object):
         :param data_url: data path for csv or json
         :return: save the DataFrame in the self.data
         '''
+        self.db_id = 'temp_' + table_name
+        self.table_id = table_name
+
         if data_type == 'csv':
             if data != None and data_url == None:
                 self.data = data
@@ -111,8 +116,20 @@ class ncNet(object):
             else:
                 raise ValueError('The data type must be one of the csv, json, sqlite3, or a DataFrame object.')
 
-        self.db_id = 'temp_'+table_name
-        self.table_id = table_name
+        self.db_tables_columns_types = dict()
+        self.db_tables_columns_types[self.db_id] = dict()
+        self.db_tables_columns_types[self.db_id][table_name] = dict()
+        for col, _type in self.data.dtypes.items():
+            # print(col, _type)
+            if 'int' in str(_type).lower() or 'float' in str(_type).lower():
+                _type = 'numeric'
+            else:
+                _type = 'categorical'
+            self.db_tables_columns_types[self.db_id][table_name][col.lower()] = _type
+
+        # print(self.db_tables_columns_types)
+
+        self.data.columns = self.data.columns.str.lower() # to lowercase
 
         self.db_tables_columns = {
             self.db_id:{
@@ -137,26 +154,24 @@ class ncNet(object):
             col_val_map = self.DataProcesser.get_values_in_columns(self.db_id, table, cols, conditions='remove')
             self.db_table_col_val_map[self.db_id][table] = col_val_map
 
-    def show_dataset(self):
-        return self.data.head()
+    def show_dataset(self, top_rows=5):
+        return self.data[:top_rows]
 
 
     def nl2vis(self, nl_question, chart_template=None, show_progress=None, visualization_aware_translation=True):
         # process and the nl_question and the chart template as input.
         # call the model to perform prediction
         # render the predicted query
+        query2vl = VegaZero2VegaLite()
+
         input_src, token_types = self.process_input(nl_question, chart_template)
 
-        # print('=========================================================\n')
-        # print('input_src:', input_src)
-        # print('token_types:', token_types)
-
         if visualization_aware_translation == True:
-            print("\nGenerate the visualization by visualization-aware translation:\n")
+            # print("\nGenerate the visualization by visualization-aware translation:\n")
 
             pred_query, attention, enc_attention = translate_sentence_with_guidance(
                 self.db_id, self.table_id, input_src, self.SRC, self.TRG, self.TOK_TYPES, token_types,
-                self.SRC, self.ncNet, self.db_tables_columns, self.device, self.my_max_length, show_progress
+                self.SRC, self.ncNet, self.db_tables_columns, self.db_tables_columns_types, self.device, self.my_max_length, show_progress
             )
 
             pred_query = ' '.join(pred_query).replace(' <eos>', '').lower()
@@ -171,27 +186,12 @@ class ncNet(object):
             print('[Chart Template]:', chart_template)
             print('[Predicted VIS Query]:', pred_query)
 
-            create_vis = VisRendering()
-
-            vis_query = create_vis.parse_output_query(
-                './dataset/database/',
-                self.db_id,
-                self.table_id,
-                pred_query
-            )
-
-            data4vis = create_vis.query_sqlite3(
-                './dataset/database/',
-                self.db_id,
-                vis_query['data_part']['sql_part']
-            )
-            print('[The Predicted VIS Result]:')
-            create_vis.render_vis(data4vis, vis_query)
-            print('\n')
+            # print('[The Predicted VIS Result]:')
+            return VegaLite(query2vl.to_VegaLite(pred_query, self.data)), query2vl.to_VegaLite(pred_query, self.data)
+            # print('\n')
 
         else:
-
-            print("\nGenerate the visualization by greedy decoding:\n")
+            # print("\nGenerate the visualization by greedy decoding:\n")
 
             pred_query,  attention, enc_attention = translate_sentence(
                 input_src, self.SRC, self.TRG, self.TOK_TYPES, token_types, self.ncNet, self.device, self.my_max_length
@@ -209,74 +209,65 @@ class ncNet(object):
             print('[Chart Template]:', chart_template)
             print('[Predicted VIS Query]:', pred_query)
 
-            create_vis = VisRendering()
-
-            vis_query = create_vis.parse_output_query(
-                './dataset/database/',
-                self.db_id,
-                self.table_id,
-                pred_query
-            )
-
-            data4vis = create_vis.query_sqlite3(
-                './dataset/database/',
-                self.db_id,
-                vis_query['data_part']['sql_part']
-            )
-            print('[The Predicted VIS Result]:')
-            create_vis.render_vis(data4vis, vis_query)
-
-
+            # print('[The Predicted VIS Result]:')
+            return VegaLite(query2vl.to_VegaLite(pred_query, self.data)), query2vl.to_VegaLite(pred_query, self.data)
 
 
     def process_input(self, nl_question, chart_template):
 
         def get_token_types(input_source):
+            # print('input_source:', input_src)
 
             token_types = ''
 
-            for ele in re.findall('<nl>.*</nl>', input_source)[0].split(' '):
+            for ele in re.findall('<n>.*</n>', input_source)[0].split(' '):
                 token_types += ' nl'
 
-            for ele in re.findall('<template>.*</template>', input_source)[0].split(' '):
+            for ele in re.findall('<c>.*</c>', input_source)[0].split(' '):
                 token_types += ' template'
+
+            token_types += ' table table'
 
             for ele in re.findall('<col>.*</col>', input_source)[0].split(' '):
                 token_types += ' col'
 
-            for ele in re.findall('<value>.*</value>', input_source)[0].split(' '):
+            for ele in re.findall('<val>.*</val>', input_source)[0].split(' '):
                 token_types += ' value'
 
-            token_types = token_types.strip()
+            token_types += ' table'
 
+            token_types = token_types.strip()
             return token_types
 
         def fix_chart_template(chart_template = None):
-            query_template = 'visualize [c] select [x], [agg(y)] from [d] where [w] group by [xy] bin [x] by [i] order by [xy] [t]'
+            query_template = 'mark [T] data [D] encoding x [X] y aggregate [AggFunction] [Y] color [Z] transform filter [F] group [G] bin [B] sort [S] topk [K]'
 
             if chart_template != None:
                 try:
-                    query_template = query_template.replace('[c]', chart_template['chart'])
+                    query_template = query_template.replace('[T]', chart_template['chart'])
                 except:
                     raise ValueError('Error at settings of chart type!')
 
                 try:
                     if 'sorting_options' in chart_template and chart_template['sorting_options'] != None:
+                        order_xy = '[O]'
                         if 'axis' in chart_template['sorting_options']:
                             if chart_template['sorting_options']['axis'].lower() == 'x':
-                                query_template = query_template.replace('order by [xy]', 'order by [x]')
+                                order_xy = '[X]'
                             elif chart_template['sorting_options']['axis'].lower() == 'y':
-                                query_template = query_template.replace('order by [xy]', 'order by [y]')
+                                order_xy = '[Y]'
                             else:
-                                query_template = query_template.replace('order by [xy]', 'order by [o]')
+                                order_xy = '[O]'
 
+                        order_type = 'ASC'
                         if 'type' in chart_template['sorting_options']:
                             if chart_template['sorting_options']['type'].lower() == 'desc':
-                                query_template = query_template.replace('[t]', 'desc')
+                                order_type = 'DESC'
                             elif chart_template['sorting_options']['type'].lower() == 'asc':
-                                query_template = query_template.replace('[t]', 'asc')
+                                order_type = 'ASC'
                             else:
                                 raise ValueError('Unknown order by settings, the order-type must be "desc", or "asc"')
+                        query_template = query_template.replace('sort [S]', 'sort '+order_xy+' '+order_type)
                 except:
                     raise ValueError('Error at settings of sorting!')
 
@@ -290,27 +281,23 @@ class ncNet(object):
             self.db_id, self.table_id, nl_question, db_table_col_val_map=self.db_table_col_val_map
         )
         col_names = ' '.join(str(e) for e in col_names)
-        # col_names = self.table_id + ' ' + col_names
         value_names = ' '.join(str(e) for e in value_names)
-        input_src = "<nl> {} </nl> <template> {} </template> <col> {} </col> <value> {} </value>".format(nl_question, query_template,
-                                                                                                 col_names,
-                                                                                                 value_names).lower()
+        input_src = "<N> {} </N> <C> {} </C> <D> {} <COL> {} </COL> <VAL> {} </VAL> </D>".format(nl_question, query_template, self.table_id, col_names, value_names).lower()
         token_types = get_token_types(input_src)
 
         return input_src, token_types
 
 
-
 if __name__ == '__main__':
     ncNet = ncNet(
-        trained_model='./save_models/model_best.pt'
+        trained_model='./save_models/trained_model.pt'
     )
     ncNet.specify_dataset(
         data_type='sqlite3',
-        db_url='./dataset/database/covid19/covid19.sqlite',
-        table_name='us_states'
+        db_url='./dataset/database/car_1/car_1.sqlite',
+        table_name='cars_data'
     )
     ncNet.nl2vis(
-        nl_question='I want to know the proportion of total number by each case in Massachusetts on 2021-02-27',
+        nl_question='What is the average weight and year for each year. Plot them as line chart.',
         chart_template=None
     )

@@ -172,44 +172,40 @@ class ProcessData4Training(object):
 
     def fill_in_query_template_by_chart_template(self, query):
         '''
-        get the chart template from the benchmark dataset.
         mark = {bar, pie, line, scatter}
         order = {by: x|y, type: desc|asc}
         '''
-        query_template = 'visualize [c] select [x], [agg(y)] from [d] where [w] group by [xy] bin [x] by [i] order by [xy] [t]'
+
+        query_template = 'mark [T] data [D] encoding x [X] y aggregate [AggFunction] [Y] color [Z] transform filter [F] group [G] bin [B] sort [S] topk [K]'
         query_chart_template = query_template
 
         query_list = query.lower().split(' ')
 
-        chart_type = query_list[query_list.index('visualize') + 1]
-        table_name = query_list[query_list.index('from') + 1]
+        chart_type = query_list[query_list.index('mark') + 1]
+        table_name = query_list[query_list.index('data') + 1]
 
-        if 'order' in query_list:
+        if 'sort' in query_list:
             # ORDER by X or BY Y?
-
-            X = query_list[query_list.index('select') + 1]
-            Y = query_list[query_list.index('from') - 1]
-
-            xy_axis = query_list[query_list.index('order') + 2]
-            order_xy = '[o]'
-            if xy_axis == Y:
-                order_xy = '[y]'
-            elif xy_axis == X:
-                order_xy = '[x]'
+            xy_axis = query_list[query_list.index('sort') + 1]
+            order_xy = '[O]'
+            if xy_axis == 'y':
+                order_xy = '[Y]'
+            elif xy_axis == 'x':
+                order_xy = '[X]'
             else:
-                #             print('can not find OrderBy relationship?', xy_axis, X, Y)
-                order_xy = '[o]'  # other
+                order_xy = '[O]'  # other
 
-            query_chart_template = query_chart_template.replace('[xy]', order_xy)
+            if query_list.index('sort') + 2 < len(query_list):
+                order_type = query_list[query_list.index('sort') + 2]  # asc / desc
+                query_chart_template = query_chart_template.replace('[S]', order_xy + ' ' + order_type)
 
-            if query_list.index('order') + 3 < len(query_list):
-                order_type = query_list[query_list.index('order') + 3]  # asc / desc
-                query_chart_template = query_chart_template.replace('[t]', order_type)
+            else:
+                query_chart_template = query_chart_template.replace('[S]', order_xy)
 
-            query_chart_template = query_chart_template.replace('[d]', table_name)
+            query_chart_template = query_chart_template.replace('[D]', table_name)
 
-        query_chart_template = query_chart_template.replace('[c]', chart_type)
-        query_template = query_template.replace('[d]', table_name)
+        query_chart_template = query_chart_template.replace('[T]', chart_type)
+        query_template = query_template.replace('[D]', table_name)
 
         return query_template, query_chart_template
 
@@ -228,17 +224,21 @@ class ProcessData4Training(object):
         '''
         token_types = ''
 
-        for ele in re.findall('<nl>.*</nl>', input_source)[0].split(' '):
+        for ele in re.findall('<N>.*</N>', input_source)[0].split(' '):
             token_types += ' nl'
 
-        for ele in re.findall('<template>.*</template>', input_source)[0].split(' '):
+        for ele in re.findall('<C>.*</C>', input_source)[0].split(' '):
             token_types += ' template'
 
-        for ele in re.findall('<col>.*</col>', input_source)[0].split(' '):
+        token_types += ' table table'
+
+        for ele in re.findall('<COL>.*</COL>', input_source)[0].split(' '):
             token_types += ' col'
 
-        for ele in re.findall('<value>.*</value>', input_source)[0].split(' '):
+        for ele in re.findall('<VAL>.*</VAL>', input_source)[0].split(' '):
             token_types += ' value'
+
+        token_types += ' table'
 
         token_types = token_types.strip()
         return token_types
@@ -246,65 +246,62 @@ class ProcessData4Training(object):
     def process4training(self):
         # process for template
         for each in ['train.csv', 'dev.csv', 'test.csv']:
-            df = pd.read_csv('../dataset/' + each)
+            df = pd.read_csv('./dataset/' + each)
             data = list()
 
             for index, row in df.iterrows():
-                try:
-                    if str(row['question']) != 'nan':
-                        new_row1 = list(row)
-                        new_row2 = list(row)
 
-                        query_list = row['query'].lower().split(' ')
-                        table_name = query_list[query_list.index('from') + 1]
+                if str(row['question']) != 'nan':
 
-                        query_template, query_chart_template = self.fill_in_query_template_by_chart_template(row['query'])
+                    new_row1 = list(row)
+                    new_row2 = list(row)
 
-                        # get a list of mentioned values in the NL question
-                        col_names, value_names = self.get_mentioned_values_in_NL_question(
-                            row['db_id'], table_name, row['question'], db_table_col_val_map=finding_map # TODO is a bug here?
-                        )
-                        col_names = ' '.join(str(e) for e in col_names)
-                        col_names = table_name + ' ' + col_names
-                        value_names = ' '.join(str(e) for e in value_names)
-                        new_row1.append(col_names)
-                        new_row1.append(value_names)
-                        new_row2.append(col_names)
-                        new_row2.append(value_names)
+                    query_list = row['vega_zero'].lower().split(' ')
+                    table_name = query_list[query_list.index('data') + 1]
 
-                        new_row1.append(query_template)
-                        new_row2.append(query_chart_template)
+                    query_template, query_chart_template = self.fill_in_query_template_by_chart_template(row['vega_zero'])
 
-                        # synthesize input source
-                        input_source1 = '<nl> ' + row[
-                            'question'] + ' </nl>' + ' <template> ' + query_template + ' </template> ' + ' <col> ' + col_names + ' </col>' + ' <value> ' + value_names + ' </value>'
-                        input_source1 = ' '.join(input_source1.split())  # Replace multiple spaces with single space
+                    # get a list of mentioned values in the NL question
 
-                        input_source2 = '<nl> ' + row[
-                            'question'] + ' </nl>' + ' <template> ' + query_chart_template + ' </template> ' + ' <col> ' + col_names + ' </col>' + ' <value> ' + value_names + ' </value>'
-                        input_source2 = ' '.join(input_source2.split())  # Replace multiple spaces with single space
+                    col_names, value_names = self.get_mentioned_values_in_NL_question(
+                        row['db_id'], table_name, row['question'], db_table_col_val_map=finding_map
+                    )
+                    col_names = ' '.join(str(e) for e in col_names)
+                    value_names = ' '.join(str(e) for e in value_names)
+                    new_row1.append(col_names)
+                    new_row1.append(value_names)
+                    new_row2.append(col_names)
+                    new_row2.append(value_names)
 
-                        new_row1.append(input_source1)
-                        new_row1.append(row['query'])
+                    new_row1.append(query_template)
+                    new_row2.append(query_chart_template)
 
-                        new_row2.append(input_source2)
-                        new_row2.append(row['query'])
+                    input_source1 = '<N> ' + row[
+                        'question'] + ' </N>' + ' <C> ' + query_template + ' </C> ' + '<D> ' + table_name + ' <COL> ' + col_names + ' </COL>' + ' <VAL> ' + value_names + ' </VAL> </D>'
+                    input_source1 = ' '.join(input_source1.split())  # Replace multiple spaces with single space
 
-                        # get input source token-types
-                        token_types1 = self.get_token_types(input_source1)
-                        token_types2 = self.get_token_types(input_source2)
-                        new_row1.append(token_types1)
-                        new_row2.append(token_types2)
+                    input_source2 = '<N> ' + row[
+                        'question'] + ' </N>' + ' <C> ' + query_chart_template + ' </C> ' + '<D> ' + table_name + ' <COL> ' + col_names + ' </COL>' + ' <VAL> ' + value_names + ' </VAL> </D>'
+                    input_source2 = ' '.join(input_source2.split())  # Replace multiple spaces with single space
 
-                        data.append(new_row1)
-                        data.append(new_row2)
-                    else:
-                        pass # print('nan at ', index)
-                except:
-                    pass # print('error at ', index, '!!!!')
+                    new_row1.append(input_source1)
+                    new_row1.append(row['vega_zero'])
+
+                    new_row2.append(input_source2)
+                    new_row2.append(row['vega_zero'])
+
+                    token_types1 = self.get_token_types(input_source1)
+                    token_types2 = self.get_token_types(input_source2)
+                    new_row1.append(token_types1)
+                    new_row2.append(token_types2)
+
+                    data.append(new_row1)
+                    data.append(new_row2)
+                else:
+                    print('nan at ', index)
 
                 if index % 500 == 0:
-                    print(round(index / len(df) * 100, 2), '%')
+                    print(round(index / len(df) * 100, 2))
 
             df_template = pd.DataFrame(data=data, columns=list(df.columns) + ['mentioned_columns', 'mentioned_values',
                                                                               'query_template', 'source', 'labels',
@@ -385,6 +382,7 @@ if __name__ == "__main__":
         for table, cols in table_cols.items():
             col_val_map = DataProcesser.get_values_in_columns(db, table, cols, conditions='remove')
             finding_map[db][table] = col_val_map
+
     print('build db-table-column-distinctValue dictionary  end ... ...')
 
     # process the benchmark dataset for training&testing

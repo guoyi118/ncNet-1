@@ -115,15 +115,12 @@ if __name__ == "__main__":
     db_tables_columns = get_all_table_columns(opt.db_schema)
     db_tables_columns_types = get_all_table_columns(opt.db_tables_columns_types)
 
-    test_df = pd.read_csv(opt.test_data)
-
-    test_result = []  # tvBench_id, chart_type, hardness, ifChartTemplate, ifRight=1
-
     only_nl_cnt = 0
     only_nl_match = 0
-
     nl_template_cnt = 0
     nl_template_match = 0
+
+    test_df = pd.read_csv(opt.test_data)
 
     for index, row in tqdm(test_df.iterrows()):
 
@@ -150,21 +147,8 @@ if __name__ == "__main__":
 
                 if ' '.join(gold_query.replace('"', "'").split()) == ' '.join(pred_query.replace('"', "'").split()):
                     nl_template_match += 1
-                    test_result.append([
-                        row['tvBench_id'],
-                        row['chart'],
-                        row['hardness'],
-                        'chart_template',
-                        1
-                    ])
                 else:
-                    test_result.append([
-                        row['tvBench_id'],
-                        row['chart'],
-                        row['hardness'],
-                        'chart_template',
-                        0
-                    ])
+                    pass
 
 
             if '[t]' in src:
@@ -175,21 +159,8 @@ if __name__ == "__main__":
                 if ' '.join(gold_query.replace('"', "'").split()) == ' '.join(pred_query.replace('"', "'").split()):
                     only_nl_match += 1
 
-                    test_result.append([
-                        row['tvBench_id'],
-                        row['chart'],
-                        row['hardness'],
-                        'only_nl',
-                        1
-                    ])
                 else:
-                    test_result.append([
-                        row['tvBench_id'],
-                        row['chart'],
-                        row['hardness'],
-                        'only_nl',
-                        0
-                    ])
+                    pass
 
         except:
             print('error')

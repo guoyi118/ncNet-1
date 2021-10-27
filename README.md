@@ -29,7 +29,7 @@ Install Python dependency via `pip install -r requirements.txt` when the environ
 
 #### Runing Example
 
-Open the `test_ncNet.ipynb` to try the running example.
+Open the `ncNet.ipynb` to try the running example.
 
 #### Training
 

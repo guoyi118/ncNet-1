@@ -302,7 +302,6 @@ def translate_sentence(sentence, src_field, trg_field, TOK_TYPES, tok_types, mod
 def translate_sentence_with_guidance(db_id, table_id, sentence, src_field, trg_field, TOK_TYPES, tok_types, SRC, model,
                                      db_tables_columns, db_tables_columns_types, device, max_len=128, show_progress = False):
     model.eval()
-
     # process the tok_type
     if isinstance(tok_types, str):
         tok_types_ids = tok_types.lower().split(' ')
